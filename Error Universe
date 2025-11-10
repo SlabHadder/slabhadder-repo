@@ -1,0 +1,238 @@
+{
+  "name": "slabhadder-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.4",
+    "next": "14.1.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "swr": "^2.2.0"
+  }
+}
+/** @type {import('next').NextConfig} */
+const nextConfig = {};
+
+module.exports = nextConfig;
+node_modules/
+.next/
+.env.local
+# SlabHadder App (Prototype)
+
+Prototype for collectible error evaluation platform.
+Built with Next.js + Supabase + Vercel.
+
+## Development
+
+## Environment variables
+Create `.env.local`:
+
+
+Push to GitHub then deploy to Vercel.
+/lib
+/pages
+  /api
+    /submissions
+/components
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export default function Home() {
+  return (
+    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
+      <h1>Welcome to SlabHadder</h1>
+      <p>Track, evaluate, and value graded collectible errors.</p>
+      <a href="/dashboard" style={{ color: "blue" }}>Go to Dashboard →</a><br/><br/>
+      <a href="/submit" style={{ color: "green" }}>Submit an Item →</a>
+    </div>
+  );
+}
+import useSWR from "swr";
+
+const fetcher = (url) => fetch(url).then((r) => r.json());
+
+export default function Dashboard() {
+  const { data, error } = useSWR("/api/submissions", fetcher);
+
+  if (error) return <p>Error loading submissions.</p>;
+  if (!data) return <p>Loading...</p>;
+
+  return (
+    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
+      <h2>Submissions</h2>
+
+      {data.map((item) => (
+        <div key={item.id} style={{
+          border: "1px solid #ccc",
+          padding: 10,
+          marginTop: 10
+        }}>
+          <b>{item.category}</b> — {item.grading_company}
+          <br/>
+          Error: {item.error_type}
+          <br/>
+          Est. Value: ${item.estimated_value}
+        </div>
+      ))}
+    </div>
+  );
+}
+import { useState } from "react";
+
+export default function Submit() {
+  const [form, setForm] = useState({
+    category: "",
+    grading_company: "",
+    error_type: "",
+    base_value: "",
+  });
+
+  const submit = async () => {
+    await fetch("/api/submissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    alert("Submitted!");
+  };
+
+  return (
+    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
+      <h2>Submit a Graded Item</h2>
+
+      {Object.keys(form).map((key) => (
+        <div key={key}>
+          <label>{key}:</label>
+          <input
+            style={{ margin: 5 }}
+            value={form[key]}
+            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+          />
+        </div>
+      ))}
+
+      <button onClick={submit}>Submit</button>
+    </div>
+  );
+}
+import { supabase } from "@/lib/supabase";
+
+export default async function handler(req, res) {
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("submissions").select("*");
+    if (error) return res.status(400).json({ error });
+    return res.json(data);
+  }
+
+  if (req.method === "POST") {
+    const body = req.body;
+    const { data, error } = await supabase
+      .from("submissions")
+      .insert([body])
+      .select();
+
+    if (error) return res.status(400).json({ error });
+    return res.json(data[0]);
+  }
+}
+import { supabase } from "@/lib/supabase";
+
+export default async function handler(req, res) {
+  const { id } = req.query;
+
+  if (req.method === "GET") {
+    const { data, error } = await supabase.from("submissions").select("*").eq("id", id).single();
+    if (error) return res.status(400).json({ error });
+    return res.json(data);
+  }
+
+  if (req.method === "PUT") {
+    const { data, error } = await supabase.from("submissions")
+      .update(req.body)
+      .eq("id", id)
+      .select()
+      .single();
+    return error ? res.status(400).json({ error }) : res.json(data);
+  }
+
+components/
+ ├ SubmissionCard.js
+ └ AuthForm.js
+export default function SubmissionCard({ item }) {
+  return (
+    <div
+      style={{
+        border: "1px solid #ddd",
+        padding: 15,
+        marginTop: 10,
+        borderRadius: 6,
+        background: "#fafafa"
+      }}
+    >
+      <h3>{item.category} — {item.grading_company}</h3>
+      <p>Error Type: <b>{item.error_type}</b></p>
+      <p>Base Value: ${item.base_value}</p>
+      <p>Estimated Value: ${item.estimated_value || "Pending"}</p>
+      <p>Status: {item.status || "Submitted"}</p>
+    </div>
+  );
+}
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+export default function AuthForm() {
+  const [email, setEmail] = useState("");
+
+  const signIn = async () => {
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    if (error) alert("Error: " + error.message);
+    else alert("Check your email for login link!");
+  };
+
+  return (
+    <div style={{ padding: 20, border: "1px solid #eee" }}>
+      <h3>Login</h3>
+      <input
+        placeholder="you@example.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        style={{ margin: 5 }}
+      />
+      <button onClick={signIn}>Send Login Link</button>
+    </div>
+  );
+}
+-- Submissions table
+create table submissions (
+  id bigint generated always as identity primary key,
+  category text not null,
+  grading_company text,
+  error_type text,
+  base_value numeric,
+  error_multiplier numeric default 1.0,
+  estimated_value numeric,
+  status text default 'submitted',
+  created_at timestamp default now()
+);
+insert into submissions (category, grading_company, error_type, base_value, error_multiplier, estimated_value, status)
+values
+('Card', 'PSA', 'Misprint', 120, 1.5, 180, 'completed'),
+('Coin', 'NGC', 'Off-center', 800, 2.1, 1680, 'completed'),
+('Comic', 'CGC', 'Ink Error', 500, 2.8, 1400, 'review');
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-key
+
+  if (req.method === "DELETE") {
+    const { error } = await supabase.from("submissions").delete().eq("id", id);
+    return error ? res.status(400).json({ error }) : res.json({ success: true });
+  }
+}
