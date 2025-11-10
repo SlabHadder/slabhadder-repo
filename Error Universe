@@ -236,3 +236,22 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-key
     return error ? res.status(400).json({ error }) : res.json({ success: true });
   }
 }
+slabhadder-app/
+ ├ components/
+ │  ├ SubmissionCard.js
+ │  └ AuthForm.js
+ ├ lib/
+ │  └ supabase.js
+ ├ pages/
+ │  ├ index.js
+ │  ├ dashboard.js
+ │  ├ submit.js
+ │  └ api/submissions/
+ │      ├ index.js
+ │      └ [id].js
+ ├ schema.sql
+ ├ .env.local (not committed)
+ ├ package.json
+ ├ next.config.js
+ ├ .gitignore
+ └ README.md
