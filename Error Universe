@@ -1,34 +1,3 @@
-```
-slab-hadder-starter/
-├─ package.json
-├─ next.config.js
-├─ .env.local (not committed)
-├─ /lib
-│  └─ supabaseClient.ts
-├─ /pages
-│  ├─ _app.tsx
-│  ├─ index.tsx
-│  ├─ dashboard.tsx
-│  ├─ submit.tsx
-│  └─ /api
-│     ├─ submissions/index.ts
-│     ├─ submissions/[id].ts
-│     ├─ users/me.ts
-│     └─ audit/index.ts
-├─ /components
-│  ├─ Header.tsx
-│  ├─ AuthForm.tsx
-│  ├─ AdminPanel.tsx
-│  └─ SubmissionCard.tsx
-├─ /styles
-│  └─ globals.css
-└─ README.md
-```
-
----
-
-## Key files (copy into repo)
-
 ### package.json
 
 ```json
