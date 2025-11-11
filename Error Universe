@@ -1,257 +1,392 @@
+# Slab Hadder — Next.js + Supabase Starter (Ready for Vercel)
+
+This starter includes a minimal Next.js app scaffold, Supabase integration, API routes, Auth, Admin UI, and deployment instructions. It's designed to be drop-in for your `slabhadder.com` prototype.
+
+---
+
+## Project structure (recommended)
+
+```
+slab-hadder-starter/
+├─ package.json
+├─ next.config.js
+├─ .env.local (not committed)
+├─ /lib
+│  └─ supabaseClient.ts
+├─ /pages
+│  ├─ _app.tsx
+│  ├─ index.tsx
+│  ├─ dashboard.tsx
+│  ├─ submit.tsx
+│  └─ /api
+│     ├─ submissions/index.ts
+│     ├─ submissions/[id].ts
+│     ├─ users/me.ts
+│     └─ audit/index.ts
+├─ /components
+│  ├─ Header.tsx
+│  ├─ AuthForm.tsx
+│  ├─ AdminPanel.tsx
+│  └─ SubmissionCard.tsx
+├─ /styles
+│  └─ globals.css
+└─ README.md
+```
+
+---
+
+## Key files (copy into repo)
+
+### package.json
+
+```json
 {
-  "name": "slabhadder-app",
-  "version": "1.0.0",
+  "name": "slab-hadder-starter",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start"
+    "start": "next start -p 3000",
+    "lint": "next lint"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.4",
-    "next": "14.1.0",
+    "@supabase/supabase-js": "^2.0.0",
+    "next": "14.0.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "swr": "^2.2.0"
+    "swr": "^2.0.0"
   }
 }
-/** @type {import('next').NextConfig} */
-const nextConfig = {};
+```
 
-module.exports = nextConfig;
-node_modules/
-.next/
-.env.local
-# SlabHadder App (Prototype)
+---
 
-Prototype for collectible error evaluation platform.
-Built with Next.js + Supabase + Vercel.
+### lib/supabaseClient.ts
 
-## Development
+```ts
+import { createClient } from '@supabase/supabase-js';
 
-## Environment variables
-Create `.env.local`:
-
-
-Push to GitHub then deploy to Vercel.
-/lib
-/pages
-  /api
-    /submissions
-/components
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+```
+
+---
+
+### pages/_app.tsx
+
+```tsx
+import '../styles/globals.css';
+import type { AppProps } from 'next/app';
+
+export default function MyApp({ Component, pageProps }: AppProps) {
+  return <Component {...pageProps} />;
+}
+```
+
+---
+
+### pages/index.tsx (Landing page)
+
+```tsx
+import Link from 'next/link';
+
 export default function Home() {
   return (
-    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
-      <h1>Welcome to SlabHadder</h1>
-      <p>Track, evaluate, and value graded collectible errors.</p>
-      <a href="/dashboard" style={{ color: "blue" }}>Go to Dashboard →</a><br/><br/>
-      <a href="/submit" style={{ color: "green" }}>Submit an Item →</a>
-    </div>
+    <main className="p-12 max-w-4xl mx-auto">
+      <h1 className="text-4xl font-bold">Slab Hadder</h1>
+      <p className="mt-4">The global standard for error grading & valuation.</p>
+      <div className="mt-8 flex gap-4">
+        <Link href="/submit"><a className="px-4 py-2 bg-green-700 text-white rounded">Submit Item</a></Link>
+        <Link href="/dashboard"><a className="px-4 py-2 border rounded">Dashboard</a></Link>
+      </div>
+    </main>
   );
 }
-import useSWR from "swr";
+```
 
-const fetcher = (url) => fetch(url).then((r) => r.json());
+---
+
+### pages/submit.tsx (Submission form)
+
+```tsx
+import { useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
+
+export default function SubmitPage() {
+  const [form, setForm] = useState({ category:'', grading_company:'', grade:'', cert_number:'', error_type:'', base_value:'' });
+  const [status, setStatus] = useState('idle');
+
+  const handleChange = (e:any) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async (e:any) => {
+    e.preventDefault();
+    setStatus('submitting');
+    const payload = {
+      category: form.category,
+      grading_company: form.grading_company,
+      grade: form.grade,
+      cert_number: form.cert_number,
+      error_type: form.error_type,
+      base_value: parseFloat(form.base_value || '0'),
+      error_multiplier: 1.0,
+      estimated_value: parseFloat(form.base_value || '0'),
+      error_score: 0,
+      status: 'Pending'
+    };
+    const res = await fetch('/api/submissions', { method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    if (res.ok) setStatus('submitted'); else setStatus('error');
+  };
+
+  return (
+    <main className="p-8 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Submit a Graded Item</h1>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input name="category" placeholder="Category (Card/Coin/Comic)" value={form.category} onChange={handleChange} className="w-full p-2 border rounded" />
+        <input name="grading_company" placeholder="Grading Company" value={form.grading_company} onChange={handleChange} className="w-full p-2 border rounded" />
+        <input name="grade" placeholder="Grade" value={form.grade} onChange={handleChange} className="w-full p-2 border rounded" />
+        <input name="cert_number" placeholder="Cert #" value={form.cert_number} onChange={handleChange} className="w-full p-2 border rounded" />
+        <input name="error_type" placeholder="Declared Error" value={form.error_type} onChange={handleChange} className="w-full p-2 border rounded" />
+        <input name="base_value" placeholder="Base Value" type="number" value={form.base_value} onChange={handleChange} className="w-full p-2 border rounded" />
+        <div>
+          <button className="px-4 py-2 bg-green-700 text-white rounded">Submit</button>
+          <span className="ml-3">{status}</span>
+        </div>
+      </form>
+    </main>
+  );
+}
+```
+
+---
+
+### pages/dashboard.tsx
+
+```tsx
+import useSWR from 'swr';
+
+const fetcher = (url:string) => fetch(url).then(r => r.json());
 
 export default function Dashboard() {
-  const { data, error } = useSWR("/api/submissions", fetcher);
-
-  if (error) return <p>Error loading submissions.</p>;
-  if (!data) return <p>Loading...</p>;
-
-  return (
-    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
-      <h2>Submissions</h2>
-
-      {data.map((item) => (
-        <div key={item.id} style={{
-          border: "1px solid #ccc",
-          padding: 10,
-          marginTop: 10
-        }}>
-          <b>{item.category}</b> — {item.grading_company}
-          <br/>
-          Error: {item.error_type}
-          <br/>
-          Est. Value: ${item.estimated_value}
-        </div>
-      ))}
-    </div>
-  );
-}
-import { useState } from "react";
-
-export default function Submit() {
-  const [form, setForm] = useState({
-    category: "",
-    grading_company: "",
-    error_type: "",
-    base_value: "",
-  });
-
-  const submit = async () => {
-    await fetch("/api/submissions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    alert("Submitted!");
-  };
+  const { data, error } = useSWR('/api/submissions', fetcher);
+  if (error) return <div className="p-8">Failed to load</div>;
+  if (!data) return <div className="p-8">Loading...</div>;
 
   return (
-    <div style={{ padding: 40, fontFamily: "sans-serif" }}>
-      <h2>Submit a Graded Item</h2>
-
-      {Object.keys(form).map((key) => (
-        <div key={key}>
-          <label>{key}:</label>
-          <input
-            style={{ margin: 5 }}
-            value={form[key]}
-            onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-          />
-        </div>
-      ))}
-
-      <button onClick={submit}>Submit</button>
-    </div>
-  );
+    <main className="p-8 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {data.map((s:any) => (
+          <div key={s.id} className="p-4 bg-white rounded shadow">
+            <div className="font-semibold">{s.category} — {s.grading_company} ({s.grade})</div>
+            <div className="text-sm">Error: {s.error_type} | Score: {s.error_score}</div>
+            <div className="text-sm">Est. Value: ${s.estimated_value}</div>
+          </div>
+        ))}
+      </div>
+    </main>
+  )
 }
-import { supabase } from "@/lib/supabase";
+```
 
-export default async function handler(req, res) {
-  if (req.method === "GET") {
-    const { data, error } = await supabase.from("submissions").select("*");
+---
+
+### pages/api/submissions/index.ts
+
+```ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { supabase } from '../../../lib/supabaseClient';
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method === 'GET') {
+    const { data, error } = await supabase.from('submissions').select('*').order('created_at', { ascending: false });
     if (error) return res.status(400).json({ error });
-    return res.json(data);
+    return res.status(200).json(data);
   }
 
-  if (req.method === "POST") {
+  if (req.method === 'POST') {
     const body = req.body;
-    const { data, error } = await supabase
-      .from("submissions")
-      .insert([body])
-      .select();
-
+    const { data, error } = await supabase.from('submissions').insert([body]).select();
     if (error) return res.status(400).json({ error });
-    return res.json(data[0]);
+    return res.status(201).json(data[0]);
   }
-}
-import { supabase } from "@/lib/supabase";
 
-export default async function handler(req, res) {
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+```
+
+---
+
+### pages/api/submissions/[id].ts
+
+```ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { supabase } from '../../../lib/supabaseClient';
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
+  if (req.method === 'GET') {
+    const { data, error } = await supabase.from('submissions').select('*').eq('id', id).single();
+    if (error) return res.status(404).json({ error });
+    return res.status(200).json(data);
+  }
 
-  if (req.method === "GET") {
-    const { data, error } = await supabase.from("submissions").select("*").eq("id", id).single();
+  if (req.method === 'PUT') {
+    const body = req.body;
+    const { data, error } = await supabase.from('submissions').update(body).eq('id', id).select();
     if (error) return res.status(400).json({ error });
-    return res.json(data);
+    return res.status(200).json(data[0]);
   }
 
-  if (req.method === "PUT") {
-    const { data, error } = await supabase.from("submissions")
-      .update(req.body)
-      .eq("id", id)
-      .select()
-      .single();
-    return error ? res.status(400).json({ error }) : res.json(data);
+  if (req.method === 'DELETE') {
+    const { error } = await supabase.from('submissions').delete().eq('id', id);
+    if (error) return res.status(400).json({ error });
+    return res.status(204).end();
   }
 
-components/
- ├ SubmissionCard.js
- └ AuthForm.js
-export default function SubmissionCard({ item }) {
-  return (
-    <div
-      style={{
-        border: "1px solid #ddd",
-        padding: 15,
-        marginTop: 10,
-        borderRadius: 6,
-        background: "#fafafa"
-      }}
-    >
-      <h3>{item.category} — {item.grading_company}</h3>
-      <p>Error Type: <b>{item.error_type}</b></p>
-      <p>Base Value: ${item.base_value}</p>
-      <p>Estimated Value: ${item.estimated_value || "Pending"}</p>
-      <p>Status: {item.status || "Submitted"}</p>
-    </div>
-  );
+  return res.status(405).json({ error: 'Method not allowed' });
 }
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+```
+
+---
+
+### pages/api/users/me.ts
+
+```ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { supabase } from '../../../lib/supabaseClient';
+
+export default async function meHandler(req: NextApiRequest, res: NextApiResponse) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: 'Missing auth token' });
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError) return res.status(401).json({ error: userError });
+
+  const user = userData?.user;
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const { data, error } = await supabase.from('users').select('*').eq('email', user.email).single();
+  if (error) return res.status(200).json({ auth_user: user });
+  return res.status(200).json({ auth_user: user, app_user: data });
+}
+```
+
+---
+
+### components/AuthForm.tsx
+
+```tsx
+import { useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 export default function AuthForm() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
 
-  const signIn = async () => {
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) alert("Error: " + error.message);
-    else alert("Check your email for login link!");
+  const handleMagicLink = async (e:any) => {
+    e.preventDefault();
+    const { data, error } = await supabase.auth.signInWithOtp({ email });
+    if (error) setMessage('Failed to send link'); else setMessage('Check your email for the login link');
+  }
+
+  return (
+    <form onSubmit={handleMagicLink} className="p-4 border rounded max-w-md">
+      <h3 className="font-semibold mb-2">Sign in / Sign up</h3>
+      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="w-full p-2 border rounded mb-2" />
+      <button className="px-3 py-2 bg-green-700 text-white rounded">Send magic link</button>
+      <div className="mt-2 text-sm">{message}</div>
+    </form>
+  )
+}
+```
+
+---
+
+### components/AdminPanel.tsx
+
+```tsx
+import { useState } from 'react';
+
+export default function AdminPanel({ submission, onUpdate }:{submission:any, onUpdate:Function}) {
+  const [score, setScore] = useState(submission.error_score || 0);
+  const [estimated, setEstimated] = useState(submission.estimated_value || 0);
+  const [status, setStatus] = useState(submission.status || 'Pending');
+
+  const save = async () => {
+    const payload = { error_score: score, estimated_value: estimated, status };
+    const res = await fetch(`/api/submissions/${submission.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    if (res.ok) onUpdate();
   };
 
   return (
-    <div style={{ padding: 20, border: "1px solid #eee" }}>
-      <h3>Login</h3>
-      <input
-        placeholder="you@example.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ margin: 5 }}
-      />
-      <button onClick={signIn}>Send Login Link</button>
+    <div className="p-4 border rounded">
+      <h4 className="font-semibold mb-2">Admin Controls</h4>
+      <label className="block">Error Score</label>
+      <input type="number" value={score} onChange={(e)=>setScore(parseInt(e.target.value))} className="w-full p-2 border rounded mb-2" />
+      <label className="block">Estimated Value ($)</label>
+      <input type="number" value={estimated} onChange={(e)=>setEstimated(parseFloat(e.target.value))} className="w-full p-2 border rounded mb-2" />
+      <label className="block">Status</label>
+      <select value={status} onChange={(e)=>setStatus(e.target.value)} className="w-full p-2 border rounded mb-3">
+        <option>Pending</option>
+        <option>In Review</option>
+        <option>Completed</option>
+        <option>Rejected</option>
+      </select>
+      <button onClick={save} className="px-3 py-2 bg-blue-600 text-white rounded">Save</button>
     </div>
-  );
+  )
 }
--- Submissions table
-create table submissions (
-  id bigint generated always as identity primary key,
-  category text not null,
-  grading_company text,
-  error_type text,
-  base_value numeric,
-  error_multiplier numeric default 1.0,
-  estimated_value numeric,
-  status text default 'submitted',
-  created_at timestamp default now()
-);
-insert into submissions (category, grading_company, error_type, base_value, error_multiplier, estimated_value, status)
-values
-('Card', 'PSA', 'Misprint', 120, 1.5, 180, 'completed'),
-('Coin', 'NGC', 'Off-center', 800, 2.1, 1680, 'completed'),
-('Comic', 'CGC', 'Ink Error', 500, 2.8, 1400, 'review');
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-key
+```
 
-  if (req.method === "DELETE") {
-    const { error } = await supabase.from("submissions").delete().eq("id", id);
-    return error ? res.status(400).json({ error }) : res.json({ success: true });
-  }
+---
+
+### components/SubmissionCard.tsx
+
+```tsx
+export default function SubmissionCard({ s, showAdmin=false, onUpdate }:{ s:any, showAdmin?:boolean, onUpdate?:Function}) {
+  return (
+    <div className="p-4 bg-white rounded shadow">
+      <div className="font-semibold">{s.category} — {s.grading_company} ({s.grade})</div>
+      <div className="text-sm">Error: {s.error_type} | Score: {s.error_score}</div>
+      <div className="text-sm">Est. Value: ${s.estimated_value}</div>
+      {showAdmin && <div className="mt-3">ADMIN PANEL PLACEHOLDER</div>}
+    </div>
+  )
 }
-slabhadder-app/
- ├ components/
- │  ├ SubmissionCard.js
- │  └ AuthForm.js
- ├ lib/
- │  └ supabase.js
- ├ pages/
- │  ├ index.js
- │  ├ dashboard.js
- │  ├ submit.js
- │  └ api/submissions/
- │      ├ index.js
- │      └ [id].js
- ├ schema.sql
- ├ .env.local (not committed)
- ├ package.json
- ├ next.config.js
- ├ .gitignore
- └ README.md
+```
+
+---
+
+### styles/globals.css
+
+```css
+html,body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:#f7fafc; color:#111827 }
+a { color: #0f766e }
+```
+
+---
+
+## Deployment & Vercel setup
+
+1. Create a GitHub repository and push this project.
+2. In Vercel, import the GitHub repo and configure Environment Variables:
+   - `NEXT_PUBLIC_SUPABASE_URL` → your Supabase project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → anon public key
+   - `SUPABASE_SERVICE_ROLE_KEY` (for server-side calls needing elevated rights — store as secret)
+3. In Supabase, run the SQL script I provided earlier to create tables + seed data.
+4. On deploy, the app will be live; connect `slabhadder.com` in Vercel Domains.
+
+---
+
+## Post-deploy checklist
+- Create Supabase Auth user for `info@slabhadder.com` and other testers.
+- Test login via AuthForm (magic link flows).
+- Visit /submit and create a test record; it should appear in /dashboard.
+- Assign admin rights by creating a row in `public.users` with role = 'admin' and matching email.
+
+---
+
+If you want, I can now: generate the GitHub-ready repo bundle (zip) with these files and a single README; or I can push it to a GitHub repo for you if you give me access. Which do you prefer?
