@@ -1,11 +1,3 @@
-# Slab Hadder — Next.js + Supabase Starter (Ready for Vercel)
-
-This starter includes a minimal Next.js app scaffold, Supabase integration, API routes, Auth, Admin UI, and deployment instructions. It's designed to be drop-in for your `slabhadder.com` prototype.
-
----
-
-## Project structure (recommended)
-
 ```
 slab-hadder-starter/
 ├─ package.json
